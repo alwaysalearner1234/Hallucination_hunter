@@ -1,0 +1,79 @@
+# ============================================================
+# TruthLayer / Hallucination Hunter — root .gitignore
+# Person B (Backend & infra), Phase 0 Week 1 — Oct 5, 2026
+# ============================================================
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.venv/
+venv/
+ENV/
+env/
+.env
+!.env.example
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+dist/
+build/
+.eggs/
+mypy_cache/
+.ruff_cache/
+
+# ---------- Node / WXT / Extension (future extension/) ----------
+node_modules/
+.wxt/
+.output/
+dist/
+*.tsbuildinfo
+.npm/
+.yarn/
+.pnp.*
+
+# ---------- Playwright / QA ----------
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+*.screenshots/
+
+# ---------- Secrets ----------
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+service-account*.json
+
+# ---------- Databases / local infra ----------
+*.sqlite
+*.sqlite3
+*.db
+postgres-data/
+redis-data/
+*.dump
+
+# ---------- OS ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- IDE ----------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# ---------- Logs / temp ----------
+*.log
+logs/
+tmp/
+temp/
