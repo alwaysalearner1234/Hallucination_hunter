@@ -7,8 +7,10 @@ from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import func, select, desc
 import structlog
+
+from agent.tools.claim_extractor import ClaimExtractor
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -90,10 +92,6 @@ async def verify_stream(
 @router.post("/claims/extract", response_model=ExtractClaimsResponse)
 async def extract_claims(request: ExtractClaimsRequest):
     """Extract claims without full verification."""
-    import sys, os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "agent"))
-    from agent.tools.claim_extractor import ClaimExtractor
-
     extractor = ClaimExtractor()
     try:
         claims = await extractor.extract(request.text)
@@ -163,9 +161,11 @@ async def get_history(
     sessions = result.scalars().all()
 
     count_result = await db.execute(
-        select(VerificationSession).where(VerificationSession.status == "complete")
+        select(func.count())
+        .select_from(VerificationSession)
+        .where(VerificationSession.status == "complete")
     )
-    total = len(count_result.scalars().all())
+    total = count_result.scalar_one()
 
     return HistoryListResponse(
         items=[_session_to_response(s) for s in sessions],
@@ -264,7 +264,3 @@ def _session_to_response(s: VerificationSession) -> VerificationResponse:
         processing_time_ms=s.processing_time_ms,
         created_at=s.created_at,
     )
-
-
-# Fix missing import
-from typing import Dict

@@ -4,11 +4,6 @@ Backend API tests — pytest
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
 
 from app.main import app
 

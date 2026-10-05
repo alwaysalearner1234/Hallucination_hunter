@@ -2,11 +2,6 @@
 Agent unit tests — ClaimExtractor, SourceRanker, ConfidenceScorer, TrustScoreCalculator
 """
 import pytest
-import sys
-import os
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "agent"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
 
 class TestSourceRanker:

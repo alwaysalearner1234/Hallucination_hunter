@@ -1,5 +1,7 @@
-version: "3.9"
-
+# One command starts the whole stack (API + Postgres + Redis).
+# No .env required for boot — the backend falls back to safe defaults and
+# reports unconfigured integrations via GET /api/v1/health.
+# Copy .env.example to .env only when you need real LLM/search keys.
 services:
   postgres:
     image: postgres:15-alpine
@@ -38,7 +40,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: hh_backend
-    env_file: .env
+    environment:
+      PYTHONPATH: /app:/agent
+      DATABASE_URL: postgresql+asyncpg://hh_user:hh_password@postgres:5432/hallucination_hunter
+      REDIS_URL: redis://redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-change_this_in_production}
     ports:
       - "8000:8000"
     depends_on:
@@ -50,6 +58,12 @@ services:
       - ./backend:/app
       - ./agent:/agent
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
 volumes:
   postgres_data:

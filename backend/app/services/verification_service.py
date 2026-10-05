@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional, Dict, Any
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -24,9 +25,6 @@ logger = structlog.get_logger()
 
 def _get_agent(mode: str):
     """Lazy import to avoid circular imports."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "agent"))
     from agent.agents.hallucination_hunter import HallucinationHunterAgent
     return HallucinationHunterAgent(mode=mode)
 
@@ -153,7 +151,7 @@ class VerificationService:
                 if not url:
                     continue
                 existing = await db.execute(
-                    __import__("sqlalchemy").select(Source).where(Source.url == url)
+                    select(Source).where(Source.url == url)
                 )
                 source_obj = existing.scalars().first()
                 if not source_obj:

@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Backend imports `agent.*` — /agent is mounted via docker-compose;
+# bake the path in so imports work without sys.path hacks.
+ENV PYTHONPATH="/app:/agent"
+
 COPY . .
 
 EXPOSE 8000

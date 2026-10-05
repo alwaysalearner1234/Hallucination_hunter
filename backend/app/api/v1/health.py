@@ -3,6 +3,7 @@ Health check and OCR/Upload routes.
 """
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 import structlog
 
 from app.core.config import settings
@@ -24,7 +25,7 @@ async def health():
     try:
         from app.core.database import engine
         async with engine.connect() as conn:
-            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
         db_status = "ok"
     except Exception as e:
         db_status = f"error: {str(e)[:50]}"
