@@ -33,14 +33,28 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 43200  # 30 days
 
+    # Per-install API keys (Phase 1, Week 2). Off in dev/test so the
+    # mobile guest flow and existing tests keep working without a key;
+    # staging/production set REQUIRE_API_KEY=true.
+    REQUIRE_API_KEY: bool = False
+
     # Agent
     MAX_RETRIEVAL_ITERATIONS: int = 3
     MAX_SOURCES_PER_CLAIM: int = 5
     AGENT_TIMEOUT_SECONDS: int = 120
 
+    # Phase 1, Week 3: parallel claim verification + per-claim budget.
+    MAX_CLAIM_CONCURRENCY: int = 4
+    CLAIM_TIMEOUT_SECONDS: int = 90
+
+    # Phase 1, Week 4: downstream timeouts (seconds).
+    SEARCH_TIMEOUT_SECONDS: int = 30
+    LLM_TIMEOUT_SECONDS: int = 60
+
     # Rate limiting
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 20
-    MAX_INPUT_LENGTH: int = 50000
+    RATE_LIMIT_ENABLED: bool = True
+    MAX_INPUT_length: int = 50000
     MAX_FILE_SIZE_MB: int = 10
 
     class Config:

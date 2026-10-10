@@ -1,0 +1,70 @@
+# Staging deployment (Phase 1, Week 5) — production-shaped, no dev mounts.
+# Usage: cp .env.staging.example .env.staging  (fill secrets, never commit)
+#        docker compose -f docker-compose.staging.yml --env-file .env.staging up -d --build
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hh_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.staging}
+      POSTGRES_DB: ${POSTGRES_DB:-hallucination_hunter}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
+      - ./database/migrations/002_api_keys.sql:/docker-entrypoint-initdb.d/002_api_keys.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hh_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.staging}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PYTHONPATH: /app:/agent
+      APP_ENV: staging
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hh_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hallucination_hunter}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY in .env.staging}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:?set TAVILY_API_KEY in .env.staging}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.staging}
+      REQUIRE_API_KEY: "true"
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # NOTE: the image must also contain /agent (see runbook: build from repo
+    # root or copy agent/ in CI). Until then, mount read-only as a fallback:
+    volumes:
+      - ./agent:/agent:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

@@ -133,3 +133,16 @@ class Feedback(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     claim = relationship("Claim", back_populates="feedback")
+
+
+class ApiKey(Base):
+    """Per-install API key (Phase 1, Week 2). Only the SHA-256 hash is stored."""
+
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key_hash = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(100))
+    revoked = Column(Boolean, default=False, nullable=False)
+    last_used_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=utcnow)

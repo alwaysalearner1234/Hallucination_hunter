@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional, Dict, Any
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -24,9 +25,6 @@ logger = structlog.get_logger()
 
 def _get_agent(mode: str):
     """Lazy import to avoid circular imports."""
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "agent"))
     from agent.agents.hallucination_hunter import HallucinationHunterAgent
     return HallucinationHunterAgent(mode=mode)
 
@@ -60,6 +58,11 @@ class VerificationService:
     ) -> AsyncGenerator[str, None]:
         """
         Run verification and yield SSE events as the agent progresses.
+
+        Extension-friendly framing: an initial `retry` hint plus a connected
+        comment (so clients know the stream is live), periodic keepalive
+        comments for proxies that buffer idle streams, and a guaranteed
+        terminal `complete` or `error` event (the stream never just hangs).
         """
         agent = _get_agent(mode)
         events_queue: asyncio.Queue = asyncio.Queue()
@@ -72,10 +75,13 @@ class VerificationService:
             agent.verify(text, progress_callback=on_progress)
         )
 
+        # Tell the client how long to wait before reconnecting, if it drops.
+        yield "retry: 10000\n: connected\n\n"
+
         try:
             while True:
                 try:
-                    event, data = await asyncio.wait_for(events_queue.get(), timeout=1.0)
+                    event, data = await asyncio.wait_for(events_queue.get(), timeout=10.0)
                     sse_data = json.dumps({"event": event, "data": data, "session_id": session_id})
                     yield f"data: {sse_data}\n\n"
 
@@ -86,16 +92,23 @@ class VerificationService:
 
                 except asyncio.TimeoutError:
                     if agent_task.done():
-                        if agent_task.exception():
-                            error = str(agent_task.exception())
-                            yield f"data: {json.dumps({'event': 'error', 'data': {'message': error}})}\n\n"
+                        exc = agent_task.exception()
+                        if exc is not None:
+                            if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+                                payload = {"message": str(exc), "code": "TIMEOUT"}
+                            elif isinstance(exc, ValueError):
+                                payload = {"message": str(exc), "code": "INVALID_INPUT"}
+                            else:
+                                payload = {"message": str(exc), "code": "AGENT_ERROR"}
+                            yield f"data: {json.dumps({'event': 'error', 'data': payload})}\n\n"
                         break
-                    # Send keepalive
-                    yield f": keepalive\n\n"
+                    # Send keepalive (prevents proxy/ext buffering timeouts)
+                    yield ": keepalive\n\n"
 
         except Exception as e:
             logger.error("sse_stream_error", session_id=session_id, error=str(e))
-            yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
+            payload = {"message": str(e), "code": "STREAM_ERROR"}
+            yield f"data: {json.dumps({'event': 'error', 'data': payload})}\n\n"
         finally:
             if not agent_task.done():
                 agent_task.cancel()
@@ -153,7 +166,7 @@ class VerificationService:
                 if not url:
                     continue
                 existing = await db.execute(
-                    __import__("sqlalchemy").select(Source).where(Source.url == url)
+                    select(Source).where(Source.url == url)
                 )
                 source_obj = existing.scalars().first()
                 if not source_obj:

@@ -194,6 +194,19 @@ class HistoryListResponse(BaseModel):
     page: int
     page_size: int
 
+
+# ── Per-install API keys (Phase 1, Week 2) ─────────────────────
+
+class ApiKeyIssueRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=100)
+
+
+class ApiKeyIssueResponse(BaseModel):
+    key: str  # plaintext — returned ONCE at issuance, never again
+    key_id: str
+    created_at: datetime
+    warning: str = "Store this key now — it is shown only once."
+
 class HealthResponse(BaseModel):
     status: str
     version: str
