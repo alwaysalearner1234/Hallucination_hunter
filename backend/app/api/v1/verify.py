@@ -81,7 +81,11 @@ async def verify_stream(
         ),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache",
+            # no-transform stops intermediaries buffering the stream;
+            # keep-alive + periodic :keepalive comments keep extension
+            # service-worker fetches alive through proxies.
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
             "Access-Control-Allow-Origin": "*",
         },

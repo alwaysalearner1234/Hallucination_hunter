@@ -11,6 +11,7 @@ Status: **draft** — A1/A2/B/C review at the Oct 9 sync. Breaking changes need 
 | POST | `/api/v1/verify/stream` | `VerifyRequest` | `text/event-stream` (SSE, see below) |
 | POST | `/api/v1/claims/extract` | `ExtractClaimsRequest` | `ExtractClaimsResponse` |
 | POST | `/api/v1/agent/verify` | `AgentVerifyRequest` | `AgentVerifyResponse` |
+| POST | `/api/v1/keys` | `{name?}` | `ApiKeyIssueResponse` (plaintext key, once) |
 | GET | `/api/v1/history?page=1&page_size=20` | — | `HistoryListResponse` |
 | GET | `/api/v1/history/{session_id}` | — | `VerificationResponse` |
 | DELETE | `/api/v1/history/{session_id}` | — | `{"deleted": true, "id": ...}` |
@@ -83,8 +84,12 @@ interface AgentVerifyResponse { // simplified, for external AI agents
 
 ## SSE event names (`POST /api/v1/verify/stream`)
 
-Response headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`,
-`X-Accel-Buffering: no`. Each frame is `data: {json}\n\n`:
+Response headers: `Content-Type: text/event-stream`,
+`Cache-Control: no-cache, no-transform`, `Connection: keep-alive`,
+`X-Accel-Buffering: no`. The stream opens with a `retry: 10000` hint plus a
+`: connected` comment, then `data: {json}\n\n` frames, with `: keepalive`
+comments every ~10 s of idle time. The stream always ends with `complete`
+or `error` — never a silent hang. Error frames carry `{message, code}`.
 
 | `event` | `data` | Meaning |
 |---------|--------|---------|
@@ -99,14 +104,26 @@ comment frames and tolerate reconnects (no `Last-Event-ID` resume in v2).
 
 ## Errors
 
-All errors are JSON `{detail: string}`:
-`400` input too long · `404` unknown session · `413/415` bad upload ·
-`422` validation (raised as `ValueError`) · `500` unexpected ·
-`504` agent timeout (`AGENT_TIMEOUT_SECONDS`, default 120 s).
+All errors are JSON `{detail: string, code: string}`:
+`400` input too long · `401` missing/invalid API key · `403` revoked key ·
+`404` unknown session · `413/415` bad upload ·
+`422` validation (`INVALID_INPUT`) · `429` rate limited (`RATE_LIMITED`,
+with `Retry-After` seconds header) · `500` unexpected (`INTERNAL_ERROR`) ·
+`504` agent/claim timeout (`TIMEOUT`).
+
+## Auth (per-install keys — settled)
+
+- `POST /api/v1/keys` (open) issues a `tl_...` key; plaintext is returned
+  once, only the SHA-256 hash is stored (`api_keys` table).
+- Verification routes require the key via `X-API-Key` or
+  `Authorization: Bearer` when `REQUIRE_API_KEY=true` (staging/prod).
+  Dev/test keep it off so the mobile guest flow works keyless.
+- `/health` and `/keys` stay open (probes + issuance).
+- History scoping per key is deferred to Phase 2.
 
 ## Open questions for review
 
-1. Per-install API keys + per-key history scoping (Week 2–3, B) — auth scheme TBD.
-2. `chrome-extension://` CORS origins (Week 2, B) — currently `BACKEND_CORS_ORIGINS` env.
+1. ~~Per-install API keys + per-key history scoping~~ — keys done; scoping TBD (Phase 2).
+2. ~~`chrome-extension://` CORS origins~~ — covered by `allow_origin_regex` in code.
 3. Claim schema character offsets / quoted anchors for page highlighting (C + A1/A2).
-4. `429` rate-limit shape with `Retry-After` (Week 3, B) — reserve `{detail, retry_after}`.
+4. ~~`429` rate-limit shape with `Retry-After`~~ — done: `{detail, code}` + header.

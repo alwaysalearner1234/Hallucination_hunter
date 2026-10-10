@@ -2,10 +2,17 @@
 LLM Client — supports Gemini and OpenAI.
 The provider is controlled by LLM_PROVIDER env var.
 """
+import asyncio
 import json
 import re
 from typing import Any, Dict, Optional
 import structlog
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from app.core.config import settings
 
 logger = structlog.get_logger()
@@ -38,6 +45,12 @@ class LLMClient:
 
         return self._client
 
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        retry=retry_if_not_exception_type(ValueError),
+        reraise=True,
+    )
     async def complete(
         self,
         system_prompt: str,
@@ -51,27 +64,39 @@ class LLMClient:
         try:
             if self.provider == "gemini":
                 full_prompt = f"{system_prompt}\n\n{user_prompt}"
-                response = client.generate_content(
-                    full_prompt,
-                    generation_config={
-                        "temperature": temperature,
-                        "max_output_tokens": max_tokens,
-                    },
+                # generate_content is synchronous — run off the event loop so
+                # parallel claim verification isn't blocked, and bound it.
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        client.generate_content,
+                        full_prompt,
+                        generation_config={
+                            "temperature": temperature,
+                            "max_output_tokens": max_tokens,
+                        },
+                    ),
+                    timeout=settings.LLM_TIMEOUT_SECONDS,
                 )
                 return response.text
 
             elif self.provider == "openai":
-                response = await client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=temperature,
-                    max_tokens=max_tokens,
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    ),
+                    timeout=settings.LLM_TIMEOUT_SECONDS,
                 )
                 return response.choices[0].message.content
 
+        except (asyncio.TimeoutError, TimeoutError) as e:
+            logger.error("llm_timeout", provider=self.provider, error=str(e))
+            raise TimeoutError(f"LLM request timed out after {settings.LLM_TIMEOUT_SECONDS}s")
         except Exception as e:
             logger.error("llm_error", provider=self.provider, error=str(e))
             raise

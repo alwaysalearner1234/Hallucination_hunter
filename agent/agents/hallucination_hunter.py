@@ -78,97 +78,38 @@ class HallucinationHunterAgent:
         if not claims:
             return self._empty_report(text, "No verifiable claims found in the text.")
 
-        # ── Stage 2–6: Per-claim pipeline ────────────────────────
-        verified_claims = []
-        all_sources = {}
+        # ── Stage 2–6: Per-claim pipeline (parallel, bounded) ────
+        # Claims run concurrently under a semaphore so one slow claim can't
+        # serialize the whole check; a single failed claim is isolated and
+        # reported UNVERIFIABLE instead of failing the batch.
+        semaphore = asyncio.Semaphore(max(1, settings.MAX_CLAIM_CONCURRENCY))
 
-        for i, claim in enumerate(claims):
-            claim_id = claim["id"]
+        async def run_one(index: int, single_claim: Dict[str, Any]) -> Dict[str, Any]:
+            async with semaphore:
+                try:
+                    return await asyncio.wait_for(
+                        self._verify_claim(single_claim, index, len(claims), emit),
+                        timeout=settings.CLAIM_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning("claim_timeout", claim_id=single_claim.get("id"))
+                    return await self._failed_claim(
+                        single_claim, index, "Claim verification timed out.", emit
+                    )
+                except Exception as e:
+                    logger.error(
+                        "claim_failed", claim_id=single_claim.get("id"), error=str(e)
+                    )
+                    return await self._failed_claim(single_claim, index, str(e), emit)
 
-            await emit("stage_update", {
-                "stage": "searching_evidence",
-                "label": f"Searching evidence for claim {i+1}/{len(claims)}...",
-                "claim_id": claim_id,
-                "claim_text": claim["text"][:100],
-            })
-
-            # ── Evidence Retrieval (with iteration) ─────────────
-            sources = []
-            for iteration in range(self.max_iterations):
-                sources = await self.evidence_retriever.retrieve(claim, iteration=iteration)
-
-                await emit("sources_found", {
-                    "claim_id": claim_id,
-                    "count": len(sources),
-                    "iteration": iteration,
-                })
-
-                # If we found sufficient evidence, stop iterating
-                if self._sufficient_evidence(sources):
-                    break
-
-                # For strict mode, require more sources
-                if self.mode == "quick":
-                    break
-
-            # ── Claim Verification ──────────────────────────────
-            await emit("stage_update", {
-                "stage": "verifying_claim",
-                "label": f"Verifying claim {i+1}/{len(claims)}...",
-                "claim_id": claim_id,
-            })
-
-            verification = await self.claim_verifier.verify(claim, sources)
-
-            # ── Confidence Scoring ──────────────────────────────
-            confidence = self.confidence_scorer.score(
-                verdict=verification["verdict"],
-                verification_result=verification,
-                sources=sources,
+        verified_claims = list(
+            await asyncio.gather(*[run_one(i, c) for i, c in enumerate(claims)])
+        )
+        all_sources: Dict[str, Dict[str, Any]] = {}
+        for claim_result in verified_claims:
+            all_sources.update(
+                {s["url"]: s for s in claim_result.get("sources", []) if s.get("url")}
             )
-
-            # ── Severity Assessment ─────────────────────────────
-            severity = None
-            if verification["verdict"] != "VERIFIED":
-                severity = self.trust_calculator.assess_severity(
-                    verdict=verification["verdict"],
-                    claim_type=claim.get("type", "general"),
-                    claim_text=claim["text"],
-                )
-
-            # ── Correction Generation ───────────────────────────
-            correction = None
-            if verification["verdict"] == "FALSE" and sources:
-                correction = await self.correction_generator.generate(claim, sources)
-
-            # ── Assemble claim result ───────────────────────────
-            claim_result = {
-                "id": claim_id,
-                "claim_index": i,
-                "text": claim["text"],
-                "claim_type": claim.get("type", "general"),
-                "importance": claim.get("importance", "medium"),
-                "verdict": verification["verdict"],
-                "confidence": confidence,
-                "severity": severity,
-                "reasoning": verification.get("reason", ""),
-                "evidence_summary": verification.get("evidence_summary", ""),
-                "contradictions": verification.get("contradictions", []),
-                "correction": correction.get("correction") if correction else None,
-                "correction_evidence": correction.get("evidence_basis") if correction else None,
-                "sources": sources,
-            }
-
-            verified_claims.append(claim_result)
-            all_sources.update({s["url"]: s for s in sources if s.get("url")})
-
-            await emit("claim_verified", {
-                "claim_id": claim_id,
-                "verdict": verification["verdict"],
-                "confidence": confidence,
-                "claim_index": i,
-                "total": len(claims),
-            })
 
         # ── Stage 7: Trust Score ──────────────────────────────────
         await emit("stage_update", {"stage": "calculating_trust", "label": "Calculating Trust Score..."})
@@ -196,6 +137,139 @@ class HallucinationHunterAgent:
         await emit("complete", report)
         logger.info("agent_complete", trust_score=trust_score, processing_time_ms=processing_time_ms)
         return report
+
+    async def _verify_claim(
+        self,
+        claim: Dict[str, Any],
+        index: int,
+        total: int,
+        emit,
+    ) -> Dict[str, Any]:
+        """Run the full per-claim pipeline: retrieve → verify → score → fix."""
+        claim_id = claim["id"]
+
+        await emit("stage_update", {
+            "stage": "searching_evidence",
+            "label": f"Searching evidence for claim {index+1}/{total}...",
+            "claim_id": claim_id,
+            "claim_text": claim["text"][:100],
+        })
+
+        # ── Evidence Retrieval (with iteration) ─────────────
+        sources = []
+        for iteration in range(self.max_iterations):
+            sources = await self.evidence_retriever.retrieve(claim, iteration=iteration)
+
+            await emit("sources_found", {
+                "claim_id": claim_id,
+                "count": len(sources),
+                "iteration": iteration,
+            })
+
+            # If we found sufficient evidence, stop iterating
+            if self._sufficient_evidence(sources):
+                break
+
+            # For strict mode, require more sources
+            if self.mode == "quick":
+                break
+
+        # ── Claim Verification ──────────────────────────────
+        await emit("stage_update", {
+            "stage": "verifying_claim",
+            "label": f"Verifying claim {index+1}/{total}...",
+            "claim_id": claim_id,
+        })
+
+        verification = await self.claim_verifier.verify(claim, sources)
+
+        # ── Confidence Scoring ──────────────────────────────
+        confidence = self.confidence_scorer.score(
+            verdict=verification["verdict"],
+            verification_result=verification,
+            sources=sources,
+        )
+
+        # ── Severity Assessment ─────────────────────────────
+        severity = None
+        if verification["verdict"] != "VERIFIED":
+            severity = self.trust_calculator.assess_severity(
+                verdict=verification["verdict"],
+                claim_type=claim.get("type", "general"),
+                claim_text=claim["text"],
+            )
+
+        # ── Correction Generation ───────────────────────────
+        correction = None
+        if verification["verdict"] == "FALSE" and sources:
+            correction = await self.correction_generator.generate(claim, sources)
+
+        # ── Assemble claim result ───────────────────────────
+        claim_result = {
+            "id": claim_id,
+            "claim_index": index,
+            "text": claim["text"],
+            "claim_type": claim.get("type", "general"),
+            "importance": claim.get("importance", "medium"),
+            "verdict": verification["verdict"],
+            "confidence": confidence,
+            "severity": severity,
+            "reasoning": verification.get("reason", ""),
+            "evidence_summary": verification.get("evidence_summary", ""),
+            "contradictions": verification.get("contradictions", []),
+            "correction": correction.get("correction") if correction else None,
+            "correction_evidence": correction.get("evidence_basis") if correction else None,
+            "sources": sources,
+        }
+
+        await emit("claim_verified", {
+            "claim_id": claim_id,
+            "verdict": verification["verdict"],
+            "confidence": confidence,
+            "claim_index": index,
+            "total": total,
+        })
+        return claim_result
+
+    async def _failed_claim(
+        self,
+        claim: Dict[str, Any],
+        index: int,
+        reason: str,
+        emit,
+    ) -> Dict[str, Any]:
+        """Isolated failure for one claim: UNVERIFIABLE, keeps batch alive."""
+        try:
+            severity = self.trust_calculator.assess_severity(
+                verdict="UNVERIFIABLE",
+                claim_type=claim.get("type", "general"),
+                claim_text=claim.get("text", ""),
+            )
+        except Exception:
+            severity = "LOW"
+        await emit("claim_verified", {
+            "claim_id": claim.get("id"),
+            "verdict": "UNVERIFIABLE",
+            "confidence": 0,
+            "claim_index": index,
+            "error": reason,
+        })
+        return {
+            "id": claim.get("id"),
+            "claim_index": index,
+            "text": claim.get("text", ""),
+            "claim_type": claim.get("type", "general"),
+            "importance": claim.get("importance", "medium"),
+            "verdict": "UNVERIFIABLE",
+            "confidence": 0,
+            "severity": severity,
+            "reasoning": f"Verification failed for this claim: {reason}",
+            "evidence_summary": "",
+            "contradictions": [],
+            "correction": None,
+            "correction_evidence": None,
+            "sources": [],
+        }
 
     def _sufficient_evidence(self, sources: List[Dict]) -> bool:
         """Check if we have enough quality evidence."""

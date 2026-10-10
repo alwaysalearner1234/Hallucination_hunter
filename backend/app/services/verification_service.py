@@ -58,6 +58,11 @@ class VerificationService:
     ) -> AsyncGenerator[str, None]:
         """
         Run verification and yield SSE events as the agent progresses.
+
+        Extension-friendly framing: an initial `retry` hint plus a connected
+        comment (so clients know the stream is live), periodic keepalive
+        comments for proxies that buffer idle streams, and a guaranteed
+        terminal `complete` or `error` event (the stream never just hangs).
         """
         agent = _get_agent(mode)
         events_queue: asyncio.Queue = asyncio.Queue()
@@ -70,10 +75,13 @@ class VerificationService:
             agent.verify(text, progress_callback=on_progress)
         )
 
+        # Tell the client how long to wait before reconnecting, if it drops.
+        yield "retry: 10000\n: connected\n\n"
+
         try:
             while True:
                 try:
-                    event, data = await asyncio.wait_for(events_queue.get(), timeout=1.0)
+                    event, data = await asyncio.wait_for(events_queue.get(), timeout=10.0)
                     sse_data = json.dumps({"event": event, "data": data, "session_id": session_id})
                     yield f"data: {sse_data}\n\n"
 
@@ -84,16 +92,23 @@ class VerificationService:
 
                 except asyncio.TimeoutError:
                     if agent_task.done():
-                        if agent_task.exception():
-                            error = str(agent_task.exception())
-                            yield f"data: {json.dumps({'event': 'error', 'data': {'message': error}})}\n\n"
+                        exc = agent_task.exception()
+                        if exc is not None:
+                            if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
+                                payload = {"message": str(exc), "code": "TIMEOUT"}
+                            elif isinstance(exc, ValueError):
+                                payload = {"message": str(exc), "code": "INVALID_INPUT"}
+                            else:
+                                payload = {"message": str(exc), "code": "AGENT_ERROR"}
+                            yield f"data: {json.dumps({'event': 'error', 'data': payload})}\n\n"
                         break
-                    # Send keepalive
-                    yield f": keepalive\n\n"
+                    # Send keepalive (prevents proxy/ext buffering timeouts)
+                    yield ": keepalive\n\n"
 
         except Exception as e:
             logger.error("sse_stream_error", session_id=session_id, error=str(e))
-            yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
+            payload = {"message": str(e), "code": "STREAM_ERROR"}
+            yield f"data: {json.dumps({'event': 'error', 'data': payload})}\n\n"
         finally:
             if not agent_task.done():
                 agent_task.cancel()

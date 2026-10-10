@@ -5,11 +5,26 @@ import asyncio
 from typing import List, Dict, Any, Optional
 import httpx
 import structlog
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 from app.core.config import settings
 
 logger = structlog.get_logger()
 
 TAVILY_API_URL = "https://api.tavily.com/search"
+
+
+def _is_transient_search_error(exc: BaseException) -> bool:
+    """Retry on timeouts and 429/5xx — never on 401 (bad key) or other 4xx."""
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 429 or exc.response.status_code >= 500
+    return False
 
 
 class TavilyClient:
@@ -20,7 +35,7 @@ class TavilyClient:
 
     def __init__(self):
         self.api_key = settings.TAVILY_API_KEY
-        self.timeout = 30.0
+        self.timeout = settings.SEARCH_TIMEOUT_SECONDS
 
     def _check_configured(self):
         if not self.api_key or self.api_key == "your_tavily_api_key_here":
@@ -29,6 +44,12 @@ class TavilyClient:
                 "Get a free key at https://tavily.com and set it in your .env file."
             )
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception(_is_transient_search_error),
+        reraise=True,
+    )
     async def search(
         self,
         query: str,
