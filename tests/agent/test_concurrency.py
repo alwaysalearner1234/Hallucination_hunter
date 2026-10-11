@@ -10,6 +10,39 @@ import pytest
 
 from agent.agents import hallucination_hunter as hh_module
 from agent.agents.hallucination_hunter import HallucinationHunterAgent
+from app.core.redis_client import set_redis
+
+
+class StubRedis:
+    """In-memory Redis stand-in: verdict cache simply misses every lookup."""
+
+    async def get(self, key):
+        return None
+
+    async def setex(self, key, ttl, value):
+        return True
+
+    async def incr(self, key):
+        return 1
+
+    async def incrby(self, key, amount):
+        return amount
+
+    async def incrbyfloat(self, key, amount):
+        return amount
+
+    async def expire(self, key, ttl):
+        return True
+
+    async def ttl(self, key):
+        return 60
+
+
+@pytest.fixture(autouse=True)
+def stub_redis():
+    set_redis(StubRedis())
+    yield
+    set_redis(None)
 
 
 class Tracker:

@@ -14,6 +14,7 @@ from agent.tools.confidence_scorer import ConfidenceScorer
 from agent.tools.trust_score_calculator import TrustScoreCalculator
 from agent.tools.correction_generator import CorrectionGenerator
 from agent.tools.source_ranker import SourceRanker
+from app.core.cache import get_cached_verdict, set_cached_verdict
 from app.core.config import settings
 
 logger = structlog.get_logger()
@@ -148,6 +149,36 @@ class HallucinationHunterAgent:
         """Run the full per-claim pipeline: retrieve → verify → score → fix."""
         claim_id = claim["id"]
 
+        # ── Verdict cache (Phase 2, Week 6) ─────────────────────
+        # Same claim seen before → skip retrieval + LLM entirely.
+        cached = await get_cached_verdict(claim.get("text", ""))
+        if cached is not None:
+            claim_result = {
+                "id": claim_id,
+                "claim_index": index,
+                "text": claim["text"],
+                "claim_type": cached.get("claim_type", claim.get("type", "general")),
+                "importance": cached.get("importance", claim.get("importance", "medium")),
+                "verdict": cached["verdict"],
+                "confidence": cached["confidence"],
+                "severity": cached.get("severity"),
+                "reasoning": cached.get("reasoning", ""),
+                "evidence_summary": cached.get("evidence_summary", ""),
+                "contradictions": cached.get("contradictions", []),
+                "correction": cached.get("correction"),
+                "correction_evidence": cached.get("correction_evidence"),
+                "sources": cached.get("sources", []),
+            }
+            await emit("claim_verified", {
+                "claim_id": claim_id,
+                "verdict": cached["verdict"],
+                "confidence": cached["confidence"],
+                "claim_index": index,
+                "total": total,
+                "cached": True,
+            })
+            return claim_result
+
         await emit("stage_update", {
             "stage": "searching_evidence",
             "label": f"Searching evidence for claim {index+1}/{total}...",
@@ -228,6 +259,22 @@ class HallucinationHunterAgent:
             "confidence": confidence,
             "claim_index": index,
             "total": total,
+            "cached": False,
+        })
+
+        # ── Populate the verdict cache for future identical claims ──
+        await set_cached_verdict(claim["text"], {
+            "verdict": claim_result["verdict"],
+            "confidence": claim_result["confidence"],
+            "severity": claim_result["severity"],
+            "reasoning": claim_result["reasoning"],
+            "evidence_summary": claim_result["evidence_summary"],
+            "contradictions": claim_result["contradictions"],
+            "correction": claim_result["correction"],
+            "correction_evidence": claim_result["correction_evidence"],
+            "claim_type": claim_result["claim_type"],
+            "importance": claim_result["importance"],
+            "sources": sources,
         })
         return claim_result
 

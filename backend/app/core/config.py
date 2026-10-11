@@ -57,6 +57,21 @@ class Settings(BaseSettings):
     MAX_INPUT_length: int = 50000
     MAX_FILE_SIZE_MB: int = 10
 
+    # Phase 2, Week 6: per-claim verdict cache (Redis, fail-open).
+    VERDICT_CACHE_TTL_SECONDS: int = 604800  # 7 days
+
+    # Phase 2, Week 8: error tracking + cost dashboard.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.1
+    COST_USD_PER_1K_INPUT_TOKENS: float = 0.00035
+    COST_USD_PER_1K_OUTPUT_TOKENS: float = 0.00105
+    COST_USD_PER_SEARCH: float = 0.005
+
+    # Phase 2, Week 9: pool + Redis tuning knobs.
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    REDIS_SOCKET_TIMEOUT: int = 5
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

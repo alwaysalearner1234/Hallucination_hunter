@@ -12,6 +12,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
       - ./database/migrations/002_api_keys.sql:/docker-entrypoint-initdb.d/002_api_keys.sql
+      - ./database/migrations/003_history_api_key.sql:/docker-entrypoint-initdb.d/003_history_api_key.sql
+      - ./database/migrations/004_perf_indexes.sql:/docker-entrypoint-initdb.d/004_perf_indexes.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hh_user}"]
       interval: 10s

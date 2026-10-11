@@ -16,6 +16,8 @@ Status: **draft** — A1/A2/B/C review at the Oct 9 sync. Breaking changes need 
 | GET | `/api/v1/history/{session_id}` | — | `VerificationResponse` |
 | DELETE | `/api/v1/history/{session_id}` | — | `{"deleted": true, "id": ...}` |
 | GET | `/api/v1/health` | — | `HealthResponse` |
+| GET | `/api/v1/metrics` | — | `MetricsResponse` (cache + cost aggregates) |
+| DELETE | `/api/v1/data` | — | `{deleted: n}` — wipes the calling key's history |
 | POST | `/api/v1/ocr` | image file (multipart) | `{text, ocr_confidence, character_count, ...}` |
 | POST | `/api/v1/upload` | pdf/txt/docx (multipart) | `{text, character_count, truncated, file_type}` |
 
@@ -118,8 +120,29 @@ with `Retry-After` seconds header) · `500` unexpected (`INTERNAL_ERROR`) ·
 - Verification routes require the key via `X-API-Key` or
   `Authorization: Bearer` when `REQUIRE_API_KEY=true` (staging/prod).
   Dev/test keep it off so the mobile guest flow works keyless.
-- `/health` and `/keys` stay open (probes + issuance).
-- History scoping per key is deferred to Phase 2.
+- `/health`, `/metrics` and `/keys` stay open (probes, dashboards, issuance).
+- History is scoped per key: list/get-one/delete-one only see rows created
+  with the calling key (`verification_sessions.api_key_id`). Keyless rows
+  (auth off) are visible only to keyless callers.
+- `DELETE /api/v1/data` deletes ALL of the calling key's history and always
+  requires a key (401 otherwise, even with auth off).
+
+## Verdict cache (Phase 2)
+
+- Per-claim results cache in Redis for `VERDICT_CACHE_TTL_SECONDS` (7 d).
+- Key = SHA-256 of normalised text (lowercase, no punctuation, collapsed
+  whitespace) — near-duplicates share entries.
+- `claim_verified` SSE events carry `cached: true/false`.
+- Hit/miss counters surfaced at `GET /api/v1/metrics`.
+
+## Observability + cost (Phase 2)
+
+- Every response carries `X-Request-ID` (echoed if sent); structured logs
+  include `request_id`, key identity hash, method, path, status, duration.
+- Sentry activates when `SENTRY_DSN` is set.
+- Each check accumulates LLM tokens + search count into `result.cost`
+  (`estimated_cost_usd`); cumulative totals at `GET /api/v1/metrics` feed
+  the cost dashboard. Pricing via `COST_USD_PER_*` env vars.
 
 ## Open questions for review
 

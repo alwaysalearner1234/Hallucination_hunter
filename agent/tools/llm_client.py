@@ -14,6 +14,7 @@ from tenacity import (
     wait_exponential,
 )
 from app.core.config import settings
+from app.core.cost import estimate_tokens, record_llm
 
 logger = structlog.get_logger()
 
@@ -77,7 +78,17 @@ class LLMClient:
                     ),
                     timeout=settings.LLM_TIMEOUT_SECONDS,
                 )
-                return response.text
+                text = response.text
+                usage = getattr(response, "usage_metadata", None)
+                if usage is not None:
+                    record_llm(
+                        getattr(usage, "prompt_token_count", 0) or 0,
+                        getattr(usage, "candidates_token_count", 0) or 0,
+                        model="gemini",
+                    )
+                else:
+                    record_llm(estimate_tokens(full_prompt), estimate_tokens(text), model="gemini")
+                return text
 
             elif self.provider == "openai":
                 response = await asyncio.wait_for(
@@ -92,7 +103,21 @@ class LLMClient:
                     ),
                     timeout=settings.LLM_TIMEOUT_SECONDS,
                 )
-                return response.choices[0].message.content
+                text = response.choices[0].message.content
+                usage = getattr(response, "usage", None)
+                if usage is not None:
+                    record_llm(
+                        getattr(usage, "prompt_tokens", 0) or 0,
+                        getattr(usage, "completion_tokens", 0) or 0,
+                        model="gpt-4o-mini",
+                    )
+                else:
+                    record_llm(
+                        estimate_tokens(system_prompt + user_prompt),
+                        estimate_tokens(text),
+                        model="gpt-4o-mini",
+                    )
+                return text
 
         except (asyncio.TimeoutError, TimeoutError) as e:
             logger.error("llm_timeout", provider=self.provider, error=str(e))

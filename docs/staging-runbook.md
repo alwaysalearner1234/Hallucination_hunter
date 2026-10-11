@@ -42,12 +42,16 @@ docker compose -f docker-compose.staging.yml --env-file .env.staging up -d --bui
 docker compose -f docker-compose.staging.yml ps   # all three "healthy"
 ```
 
-First boot applies migrations `001` + `002` via initdb. For an existing
-volume, apply manually:
+First boot applies migrations `001`–`004` via initdb. For an existing
+volume, apply manually in order:
 
 ```bash
 docker compose -f docker-compose.staging.yml exec postgres \
   psql -U hh_user -d hallucination_hunter -f /docker-entrypoint-initdb.d/002_api_keys.sql
+docker compose -f docker-compose.staging.yml exec postgres \
+  psql -U hh_user -d hallucination_hunter -f /docker-entrypoint-initdb.d/003_history_api_key.sql
+docker compose -f docker-compose.staging.yml exec postgres \
+  psql -U hh_user -d hallucination_hunter -f /docker-entrypoint-initdb.d/004_perf_indexes.sql
 ```
 
 ## 5. Health checks + smoke test
@@ -72,6 +76,16 @@ curl -N -X POST https://<staging-host>/api/v1/verify/stream -H "X-API-Key: tl_..
 
 Then point the extension at staging: set the API base URL to the staging
 `https://` host in `lib/api.ts` (Week 5, A1) and run the right-click flow.
+
+## 6. Metrics + cost watch
+
+```bash
+curl https://<staging-host>/api/v1/metrics
+# {"cache":{"hits":N,"misses":M,"hit_rate":...},"cost":{"checks":N,...}}
+```
+
+Watch `hit_rate` (cache absorbing repeat claims), cumulative
+`estimated_cost_usd`, and per-request `X-Request-ID` for log correlation.
 
 ## 6. Operate
 
