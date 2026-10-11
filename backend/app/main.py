@@ -3,18 +3,20 @@ FastAPI main application entry point.
 """
 from contextlib import asynccontextmanager
 import asyncio
-from fastapi import Depends, FastAPI, Request
+import time
+import uuid
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
 
 from app.core.config import settings
 from app.core.errors import RateLimitExceeded, error_body
-from app.core.rate_limit import rate_limit_middleware
-from app.core.security import require_api_key
+from app.core.rate_limit import identity_for, rate_limit_middleware
 from app.api.v1.verify import router as verify_router
 from app.api.v1.health import router as health_router
 from app.api.v1.keys import router as keys_router
+from app.api.v1.metrics import router as metrics_router
 
 logger = structlog.get_logger()
 
@@ -22,6 +24,17 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
+    if settings.SENTRY_DSN:
+        try:
+            import sentry_sdk
+            sentry_sdk.init(
+                dsn=settings.SENTRY_DSN,
+                environment=settings.APP_ENV,
+                traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+            )
+            logger.info("sentry_enabled", env=settings.APP_ENV)
+        except Exception as e:
+            logger.warning("sentry_init_failed", error=str(e))
     logger.info("hallucination_hunter_starting", env=settings.APP_ENV)
     yield
     logger.info("hallucination_hunter_stopping")
@@ -52,17 +65,40 @@ app.add_middleware(
 # ── Rate limiting (Redis per-key; health/keys/docs stay unlimited) ──
 app.middleware("http")(rate_limit_middleware)
 
+
+# ── Request context: ID + timing on every request (Phase 2, Week 8) ──
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    """Bind request_id/key/method/path/status/duration to one log line.
+
+    Clients may send X-Request-ID (extension correlates panel ↔ page);
+    otherwise we mint one and echo it back on every response.
+    """
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:16]
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = int((time.perf_counter() - start) * 1000)
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "http_request",
+        request_id=request_id,
+        identity=identity_for(request),
+        method=request.method,
+        path=request.url.path,
+        status=response.status_code,
+        duration_ms=duration_ms,
+    )
+    return response
+
+
 # ── Routes ────────────────────────────────────────────────────
-# Verification surface requires the per-install key when REQUIRE_API_KEY
-# is on (staging/prod). /health stays open for load-balancer probes and
-# /keys must stay open so new installs can get their key.
-app.include_router(
-    verify_router,
-    prefix="/api/v1",
-    tags=["Verification"],
-    dependencies=[Depends(require_api_key)],
-)
+# Auth rides explicitly on each verification route (require_api_key param)
+# so handlers also receive the calling key for history scoping.
+# /health + /metrics stay open for probes/dashboards; /keys stays open
+# so new installs can get their key.
+app.include_router(verify_router, prefix="/api/v1", tags=["Verification"])
 app.include_router(keys_router, prefix="/api/v1", tags=["API Keys"])
+app.include_router(metrics_router, prefix="/api/v1", tags=["Metrics"])
 app.include_router(health_router, prefix="/api/v1", tags=["Health & Upload"])
 
 

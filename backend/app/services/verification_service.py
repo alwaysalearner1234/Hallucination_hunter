@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.cost import new_check, record_check_totals, summary as cost_summary
 from app.models.models import (
     VerificationSession, Claim, Source, Evidence, AgentRun
 )
@@ -36,10 +37,12 @@ class VerificationService:
         db: AsyncSession,
         request: VerifyRequest,
         user_id: Optional[str] = None,
+        api_key_id=None,
     ) -> VerificationSession:
         session = VerificationSession(
             id=uuid.uuid4(),
             user_id=user_id,
+            api_key_id=api_key_id,
             input_text=request.text,
             source_type=request.source_type.value,
             mode=request.mode.value,
@@ -65,6 +68,7 @@ class VerificationService:
         terminal `complete` or `error` event (the stream never just hangs).
         """
         agent = _get_agent(mode)
+        new_check()
         events_queue: asyncio.Queue = asyncio.Queue()
 
         async def on_progress(event: str, data: Dict):
@@ -88,6 +92,9 @@ class VerificationService:
                     if event == "complete":
                         # Persist to DB
                         await self._persist_results(db, session_id, data)
+                        await record_check_totals(
+                            {**cost_summary(), "session_id": session_id}
+                        )
                         break
 
                 except asyncio.TimeoutError:
@@ -122,12 +129,15 @@ class VerificationService:
     ) -> Dict[str, Any]:
         """Run verification synchronously (no streaming)."""
         agent = _get_agent(mode)
+        new_check()
 
         try:
             result = await asyncio.wait_for(
                 agent.verify(text),
                 timeout=settings.AGENT_TIMEOUT_SECONDS,
             )
+            result["cost"] = cost_summary()
+            await record_check_totals({**result["cost"], "session_id": session_id})
             await self._persist_results(db, session_id, result)
             return result
         except asyncio.TimeoutError:

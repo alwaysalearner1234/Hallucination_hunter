@@ -14,7 +14,8 @@ from agent.tools.claim_extractor import ClaimExtractor
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.models import VerificationSession, Claim, Source, Evidence
+from app.core.security import require_api_key
+from app.models.models import ApiKey, VerificationSession, Claim, Source, Evidence
 from app.schemas.schemas import (
     VerifyRequest, VerificationResponse, ExtractClaimsRequest,
     ExtractClaimsResponse, AgentVerifyRequest, AgentVerifyResponse,
@@ -32,13 +33,16 @@ logger = structlog.get_logger()
 async def verify(
     request: VerifyRequest,
     db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
 ):
     """Full synchronous verification pipeline."""
     if len(request.text) > settings.MAX_INPUT_LENGTH:
         raise HTTPException(400, f"Input too long. Max {settings.MAX_INPUT_LENGTH} characters.")
 
     # Create session
-    session = await verification_service.create_session(db, request)
+    session = await verification_service.create_session(
+        db, request, api_key_id=_key_id(api_key)
+    )
     session_id = str(session.id)
 
     try:
@@ -64,12 +68,15 @@ async def verify(
 async def verify_stream(
     request: VerifyRequest,
     db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
 ):
     """Streaming verification via Server-Sent Events."""
     if len(request.text) > settings.MAX_INPUT_LENGTH:
         raise HTTPException(400, "Input too long.")
 
-    session = await verification_service.create_session(db, request)
+    session = await verification_service.create_session(
+        db, request, api_key_id=_key_id(api_key)
+    )
     session_id = str(session.id)
 
     return StreamingResponse(
@@ -94,7 +101,10 @@ async def verify_stream(
 
 # ── POST /claims/extract ─────────────────────────────────────
 @router.post("/claims/extract", response_model=ExtractClaimsResponse)
-async def extract_claims(request: ExtractClaimsRequest):
+async def extract_claims(
+    request: ExtractClaimsRequest,
+    api_key: Optional[ApiKey] = Depends(require_api_key),
+):
     """Extract claims without full verification."""
     extractor = ClaimExtractor()
     try:
@@ -113,13 +123,16 @@ async def extract_claims(request: ExtractClaimsRequest):
 async def agent_verify(
     request: AgentVerifyRequest,
     db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
 ):
     """Simplified verification endpoint for external AI agents."""
     verify_req = VerifyRequest(
         text=request.text,
         mode=request.mode,
     )
-    session = await verification_service.create_session(db, verify_req)
+    session = await verification_service.create_session(
+        db, verify_req, api_key_id=_key_id(api_key)
+    )
     result = await verification_service.verify_sync(
         session_id=str(session.id),
         text=request.text,
@@ -152,12 +165,16 @@ async def get_history(
     page: int = 1,
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
 ):
-    """Get verification history (paginated)."""
+    """Get verification history (paginated). Scoped to the calling key."""
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), 100)  # cap: full-table scans are abuse
     offset = (page - 1) * page_size
+    base = _history_base(api_key)
     result = await db.execute(
         select(VerificationSession)
-        .where(VerificationSession.status == "complete")
+        .where(*base)
         .order_by(desc(VerificationSession.created_at))
         .offset(offset)
         .limit(page_size)
@@ -165,9 +182,7 @@ async def get_history(
     sessions = result.scalars().all()
 
     count_result = await db.execute(
-        select(func.count())
-        .select_from(VerificationSession)
-        .where(VerificationSession.status == "complete")
+        select(func.count()).select_from(VerificationSession).where(*base)
     )
     total = count_result.scalar_one()
 
@@ -181,9 +196,13 @@ async def get_history(
 
 # ── GET /history/{id} ────────────────────────────────────────
 @router.get("/history/{session_id}", response_model=VerificationResponse)
-async def get_history_item(session_id: str, db: AsyncSession = Depends(get_db)):
+async def get_history_item(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
+):
     result = await db.execute(
-        select(VerificationSession).where(VerificationSession.id == session_id)
+        _scoped_session_query(api_key).where(VerificationSession.id == session_id)
     )
     session = result.scalars().first()
     if not session:
@@ -193,9 +212,13 @@ async def get_history_item(session_id: str, db: AsyncSession = Depends(get_db)):
 
 # ── DELETE /history/{id} ─────────────────────────────────────
 @router.delete("/history/{session_id}")
-async def delete_history_item(session_id: str, db: AsyncSession = Depends(get_db)):
+async def delete_history_item(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
+):
     result = await db.execute(
-        select(VerificationSession).where(VerificationSession.id == session_id)
+        _scoped_session_query(api_key).where(VerificationSession.id == session_id)
     )
     session = result.scalars().first()
     if not session:
@@ -203,6 +226,51 @@ async def delete_history_item(session_id: str, db: AsyncSession = Depends(get_db
     await db.delete(session)
     await db.commit()
     return {"deleted": True, "id": session_id}
+
+
+# ── DELETE /data (delete-my-data) ─────────────────────────────
+@router.delete("/data")
+async def delete_my_data(
+    db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
+):
+    """Delete ALL verification history for the calling API key.
+
+    Always requires an authenticated key — even with REQUIRE_API_KEY off —
+    so keyless callers can never wipe shared/dev data.
+    """
+    if api_key is None:
+        raise HTTPException(401, "An API key is required to delete personal data.")
+    result = await db.execute(
+        select(VerificationSession).where(VerificationSession.api_key_id == api_key.id)
+    )
+    sessions = result.scalars().all()
+    for session in sessions:
+        await db.delete(session)
+    await db.commit()
+    return {"deleted": len(sessions)}
+
+
+# ── Helpers ───────────────────────────────────────────────────
+def _key_id(api_key: Optional[ApiKey]):
+    """UUID of the calling key, or None for keyless (auth-off) callers."""
+    return api_key.id if api_key is not None else None
+
+
+def _history_base(api_key: Optional[ApiKey]):
+    """Shared WHERE conditions for history list + count (key-scoped)."""
+    conditions = [VerificationSession.status == "complete"]
+    if api_key is not None:
+        conditions.append(VerificationSession.api_key_id == api_key.id)
+    return conditions
+
+
+def _scoped_session_query(api_key: Optional[ApiKey]):
+    """Base session query: callers only ever see their own key's rows."""
+    stmt = select(VerificationSession)
+    if api_key is not None:
+        stmt = stmt.where(VerificationSession.api_key_id == api_key.id)
+    return stmt
 
 
 # ── Helpers ───────────────────────────────────────────────────

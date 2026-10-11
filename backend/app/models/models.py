@@ -33,6 +33,9 @@ class VerificationSession(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # Phase 2, Week 7: which per-install API key created this session.
+    # NULL = created before keys existed / auth off (dev, mobile guest flow).
+    api_key_id = Column(UUID(as_uuid=True), ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True)
     input_text = Column(Text, nullable=False)
     source_type = Column(String(50), default="paste")
     mode = Column(String(20), default="standard")

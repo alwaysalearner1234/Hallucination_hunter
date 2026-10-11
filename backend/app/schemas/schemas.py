@@ -215,6 +215,27 @@ class HealthResponse(BaseModel):
     llm: str
     search: str
 
+
+# ── Metrics: cache + cost dashboard backend (Phase 2, Weeks 6+8) ──
+
+class CacheMetrics(BaseModel):
+    hits: int = 0
+    misses: int = 0
+    hit_rate: float = 0.0
+
+
+class CostMetrics(BaseModel):
+    checks: int = 0
+    llm_input_tokens: int = 0
+    llm_output_tokens: int = 0
+    searches: int = 0
+    estimated_cost_usd: float = 0.0
+
+
+class MetricsResponse(BaseModel):
+    cache: CacheMetrics
+    cost: CostMetrics
+
 class ProgressEvent(BaseModel):
     event: str
     data: Dict[str, Any]

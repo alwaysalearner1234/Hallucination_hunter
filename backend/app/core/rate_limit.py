@@ -14,26 +14,10 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.core.errors import RateLimitExceeded, error_body
+from app.core.redis_client import get_redis, set_redis  # noqa: F401 (re-exported for tests)
 from app.core.security import API_KEY_HEADER
 
 logger = structlog.get_logger()
-
-_redis = None
-
-
-def get_redis():
-    """Lazy Redis client singleton (overridable in tests via set_redis)."""
-    global _redis
-    if _redis is None:
-        import redis.asyncio as aioredis
-        _redis = aioredis.from_url(settings.REDIS_URL)
-    return _redis
-
-
-def set_redis(client) -> None:
-    """Override the Redis client (tests). Pass None to reset to lazy init."""
-    global _redis
-    _redis = client
 
 
 def identity_for(request: Request) -> str:

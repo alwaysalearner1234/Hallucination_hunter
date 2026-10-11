@@ -12,6 +12,7 @@ from tenacity import (
     wait_exponential,
 )
 from app.core.config import settings
+from app.core.cost import record_search
 
 logger = structlog.get_logger()
 
@@ -132,6 +133,7 @@ class TavilyClient:
             self.search(q, max_results=max_results_per_query)
             for q in queries[:3]  # Limit to 3 queries max
         ]
+        record_search(len(tasks))
         results_list = await asyncio.gather(*tasks, return_exceptions=True)
 
         merged = []
