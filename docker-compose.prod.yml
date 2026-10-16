@@ -1,0 +1,72 @@
+# Production deployment (Phase 3, Week 10 — B).
+# Differences from staging: APP_ENV=production, self-contained image
+# (backend/Dockerfile.prod bakes in agent/), no bind mounts, restart always,
+# secrets REQUIRED (no defaults that boot an open prod).
+# Usage: cp .env.prod.example .env.prod  (fill secrets, never commit)
+#        docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hh_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: ${POSTGRES_DB:-hallucination_hunter}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/migrations/002_api_keys.sql:/docker-entrypoint-initdb.d/002_api_keys.sql:ro
+      - ./database/migrations/003_history_api_key.sql:/docker-entrypoint-initdb.d/003_history_api_key.sql:ro
+      - ./database/migrations/004_perf_indexes.sql:/docker-entrypoint-initdb.d/004_perf_indexes.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hh_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env.prod}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.prod
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hh_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hallucination_hunter}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?set GEMINI_API_KEY in .env.prod}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:?set TAVILY_API_KEY in .env.prod}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      REQUIRE_API_KEY: "true"
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-*}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips "*"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:

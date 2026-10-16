@@ -35,3 +35,8 @@ pytest
 - `docs/SETUP.md` — full local setup (mobile app, OCR, troubleshooting)
 - `docs/ARCHITECTURE.md` — pipeline and design decisions
 - `docs/api-contract.md` — API contract v2 (schemas + SSE events)
+- `docs/staging-runbook.md` — staging deploy + smoke test
+- `docs/production-runbook.md` — prod deploy, backups, on-call (Phase 3 B)
+- `docs/privacy-policy.md` — privacy policy draft for the Web Store listing
+- `docs/data-handling.md` — public data-handling page
+- `docs/extension-permissions-review.md` — minimum-permissions manifest review

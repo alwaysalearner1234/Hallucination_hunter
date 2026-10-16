@@ -1,0 +1,30 @@
+# Production image (Phase 3, Week 10 — B).
+# Self-contained: bakes in backend/ + agent/ so prod never depends on a
+# bind mount (staging keeps the :ro mount only as a fallback). Runs as a
+# non-root user; compose supplies secrets via environment.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Bake both trees: app.* from backend/, agent.* from agent/.
+COPY backend/ ./
+COPY agent/ /agent/
+ENV PYTHONPATH="/app:/agent"
+
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app /agent
+USER appuser
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
