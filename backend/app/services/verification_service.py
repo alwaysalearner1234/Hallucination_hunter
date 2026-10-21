@@ -8,18 +8,22 @@ import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional, Dict, Any
 import structlog
+from contextlib import asynccontextmanager
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.cost import new_check, record_check_totals, summary as cost_summary
+from app.core.cost import estimated_cost_usd
 from app.models.models import (
     VerificationSession, Claim, Source, Evidence, AgentRun
 )
 from app.schemas.schemas import (
     VerifyRequest, VerificationResponse, VerificationStatus,
-    ClaimResponse, EvidenceResponse, SourceResponse
+    ClaimResponse, EvidenceResponse, SourceResponse, VerifiedAnswerRequest, VerifiedAnswerResponse
 )
+from agent.tools.claim_extractor import ClaimExtractor
+from agent.prompts.prompts import VERIFIED_ANSWER_SYSTEM, VERIFIED_ANSWER_USER
 
 logger = structlog.get_logger()
 
@@ -144,6 +148,128 @@ class VerificationService:
             raise TimeoutError(
                 f"Verification timed out after {settings.AGENT_TIMEOUT_SECONDS}s"
             )
+
+    async def verified_answer(
+        self,
+        db: AsyncSession,
+        original_text: str,
+        session_id: Optional[str] = None,
+        mode: str = "standard",
+    ) -> VerifiedAnswerResponse:
+        """
+        Generate a verified-answer rewrite of AI text using claim verification results.
+
+        If session_id is provided and has complete verification results,
+        those results are reused; otherwise full verification is run.
+        """
+        from agent.agents.hallucination_hunter import HallucinationHunterAgent
+
+        # Determine if we can reuse existing verification results
+        existing_session = None
+        if session_id:
+            try:
+                existing_session = await db.get(VerificationSession, uuid.UUID(session_id))
+            except (ValueError, Exception):
+                existing_session = None
+
+        # Run verification if no existing complete session
+        if existing_session is None or existing_session.status != "complete" or existing_session.trust_score is None:
+            verify_req = VerifyRequest(text=original_text, mode=mode)
+            session = await self.create_session(db, verify_req)
+            result = await self.verify_sync(
+                session_id=str(session.id),
+                text=original_text,
+                mode=mode,
+                db=db,
+            )
+            session_id = str(session.id)
+        else:
+            result = {
+                "trust_score": existing_session.trust_score,
+                "total_claims": existing_session.total_claims or 0,
+                "verified": existing_session.verified_count or 0,
+                "false": existing_session.false_count or 0,
+                "unverifiable": existing_session.unverifiable_count or 0,
+                "claims": [],
+                "all_sources": [],
+                "processing_time_ms": 0,
+                "mode": mode,
+            }
+            session_id = session_id
+
+        # Generate rewritten text using the verified answer prompt
+        agent = HallucinationHunterAgent(mode=mode)
+
+        # Format verification results for the prompt
+        verified_answers = []
+        for c in result.get("claims", []):
+            verdict = c.get("verdict", "UNVERIFIABLE")
+            confidence = c.get("confidence", 0)
+            claim_text = c.get("text", "")
+            corrected = c.get("correction")
+            supporting = c.get("supporting_sources", [])
+            contradicting = c.get("contradicting_sources", [])
+
+            verified_answers.append({
+                "claim": claim_text,
+                "verdict": verdict,
+                "confidence": confidence,
+                "correction": corrected or "",
+                "supporting_sources": supporting,
+                "contradicting_sources": contradicting,
+            })
+
+        # Build a simplified summary
+        total = len(verified_answers)
+        verified_count = sum(1 for c in verified_answers if c["verdict"] == "VERIFIED")
+        false_count = sum(1 for c in verified_answers if c["verdict"] == "FALSE")
+        unverifiable_count = sum(1 for c in verified_answers if c["verdict"] == "UNVERIFIABLE")
+
+        verification_results_text = f"""{total} claims analyzed:
+- Verified: {verified_count}
+- False: {false_count}
+- Unverifiable: {unverifiable_count}
+
+Claim details:
+"""
+        for v in verified_answers:
+            verification_results_text += f"- [{v['verdict']}] {v['claim']}"
+            if v['correction']:
+                verification_results_text += f" (corrected: {v['correction']})"
+            verification_results_text += "\n"
+
+        # Run the verified answer generation
+        try:
+            result_dict = await agent.llm_client.complete_json(
+                system_prompt=VERIFIED_ANSWER_SYSTEM,
+                user_prompt=VERIFIED_ANSWER_USER.format(
+                    original_text=original_text,
+                    verification_results=verification_results_text or "No claims were found in the text.",
+                ),
+                temperature=0.1,
+            )
+        except Exception as e:
+            logger.error("verified_answer_error", error=str(e))
+            # Fallback: return original text if rewriting fails
+            return VerifiedAnswerResponse(
+                rewritten_text=original_text,
+                verification_id=session_id,
+                trust_score=result.get("trust_score") if 'result' in dir() else None,
+                total_claims=result.get("total_claims", 0) if 'result' in dir() else 0,
+                verified=result.get("verified", 0) if 'result' in dir() else 0,
+                false=result.get("false", 0) if 'result' in dir() else 0,
+                unverifiable=result.get("unverifiable", 0) if 'result' in dir() else 0,
+            )
+
+        return VerifiedAnswerResponse(
+            rewritten_text=result_dict.get("rewritten_text", original_text),
+            verification_id=session_id,
+            trust_score=result.get("trust_score"),
+            total_claims=result.get("total_claims", 0),
+            verified=result.get("verified", 0),
+            false=result.get("false", 0),
+            unverifiable=result.get("unverifiable", 0),
+        )
 
     async def _persist_results(
         self,

@@ -96,7 +96,18 @@ class CorrectClaimRequest(BaseModel):
 
 class VerifiedAnswerRequest(BaseModel):
     original_text: str
-    session_id: str
+    session_id: Optional[str] = None
+    mode: VerificationMode = VerificationMode.STANDARD
+
+
+class VerifiedAnswerResponse(BaseModel):
+    rewritten_text: str
+    verification_id: str
+    trust_score: Optional[int] = None
+    total_claims: int = 0
+    verified: int = 0
+    false: int = 0
+    unverifiable: int = 0
 
 class AgentVerifyRequest(BaseModel):
     """External agent API — simplified input/output"""

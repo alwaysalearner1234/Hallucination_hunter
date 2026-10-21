@@ -20,7 +20,7 @@ from app.schemas.schemas import (
     VerifyRequest, VerificationResponse, ExtractClaimsRequest,
     ExtractClaimsResponse, AgentVerifyRequest, AgentVerifyResponse,
     VerificationStatus, ClaimResponse, SourceResponse, EvidenceResponse,
-    HistoryListResponse,
+    HistoryListResponse, VerifiedAnswerResponse,
 )
 from app.services.verification_service import verification_service
 
@@ -63,7 +63,25 @@ async def verify(
     return _build_response(session_id, result)
 
 
-# ── POST /verify/stream (SSE) ────────────────────────────────
+# ── POST /verified-answer ──────────────────────────────────────
+@router.post("/verified-answer", response_model=VerifiedAnswerResponse)
+async def verified_answer(
+    request: VerifiedAnswerRequest,
+    db: AsyncSession = Depends(get_db),
+    api_key: Optional[ApiKey] = Depends(require_api_key),
+):
+    """Rewrite AI response using verified claim analysis.
+    
+    Takes an AI-generated text and returns a rewritten version where:
+    - Verified-false claims are replaced with their corrections
+    - Unverifiable claims are marked with [UNVERIFIED] prefix
+    - Verified-true content is preserved
+    - [Source: url] is added after corrected claims
+    """
+    session = await verification_service.verified_answer(
+        db, request.text, session_id=request.session_id, mode=request.mode.value
+    )
+    return session
 @router.post("/verify/stream")
 async def verify_stream(
     request: VerifyRequest,
