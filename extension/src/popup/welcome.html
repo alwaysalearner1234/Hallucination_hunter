@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Hallucination Hunter</title>
+  <link rel="stylesheet" href="../assets/styles/welcome.css">
+</head>
+<body>
+  <div class="welcome-container">
+    <div class="welcome-content">
+      <!-- Logo -->
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <div class="logo-text">
+          <span class="logo-title">Hallucination</span>
+          <span class="logo-accent">Hunter</span>
+        </div>
+      </div>
+
+      <h1>Welcome to Hallucination Hunter</h1>
+      <p class="tagline">Verify AI responses claim-by-claim with real evidence</p>
+
+      <!-- Features -->
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🔍</span>
+          <div class="feature-text">
+            <h3>Claim-Level Verification</h3>
+            <p>We split AI responses into individual factual claims and verify each one independently</p>
+          </div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📚</span>
+          <div class="feature-text">
+            <h3>Real Evidence</h3>
+            <p>Every verdict is backed by real web sources with quality scores — no fabricated citations</p>
+          </div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📊</span>
+          <div class="feature-text">
+            <h3>Trust Score</h3>
+            <p>Get an overall Trust Score weighted by claim importance and severity</p>
+          </div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">✏️</span>
+          <div class="feature-text">
+            <h3>Corrections</h3>
+            <p>False claims get evidence-based corrections with source attribution</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="how-it-works">
+        <h2>How to Use</h2>
+        <ol class="steps">
+          <li>
+            <span class="step-number">1</span>
+            <div class="step-text">
+              <strong>Right-click</strong> any AI response on ChatGPT, Claude, Gemini, or Perplexity
+            </div>
+          </li>
+          <li>
+            <span class="step-number">2</span>
+            <div class="step-text">
+              <strong>Select "Verify with Hallucination Hunter"</strong> from the context menu
+            </div>
+          </li>
+          <li>
+            <span class="step-number">3</span>
+            <div class="step-text">
+              <strong>View results</strong> in the side panel with per-claim verdicts and evidence
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Keyboard shortcut -->
+      <div class="shortcut-tip">
+        <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>
+        <span>Quick verify selected text</span>
+      </div>
+
+      <!-- Get started button -->
+      <button class="primary-btn" id="get-started-btn">
+        Get Started
+      </button>
+
+      <p class="footer-note">
+        By continuing, you agree to our <a href="https://truthlayer.example.com/privacy" target="_blank">Privacy Policy</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('get-started-btn').addEventListener('click', () => {
+      // Close welcome tab and open side panel
+      chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' });
+      window.close();
+    });
+  </script>
+</body>
+</html>

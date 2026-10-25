@@ -1,0 +1,25 @@
+{
+  "name": "hallucination-hunter-extension",
+  "version": "1.0.0",
+  "description": "Browser extension for claim-level AI verification",
+  "private": true,
+  "scripts": {
+    "build": "tsc && cp -r src/assets dist/ && cp manifest.json dist/",
+    "build:watch": "tsc --watch",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/generate-icons.js",
+    "zip": "npm run build && cd dist && zip -r ../hallucination-hunter-extension.zip ."
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "^20.12.0",
+    "typescript": "^5.4.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

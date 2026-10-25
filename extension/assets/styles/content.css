@@ -1,0 +1,90 @@
+/* content.css - Shared content script styles */
+.hh-verify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #6C63FF;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(108, 99, 255, 0.3);
+  z-index: 10000;
+}
+
+.hh-verify-btn:hover {
+  background: #5A51E0;
+  box-shadow: 0 4px 8px rgba(108, 99, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.hh-verify-btn:active {
+  transform: translateY(0);
+}
+
+.hh-verify-btn.verifying {
+  background: #9CA3AF;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.hh-verify-btn::before {
+  content: '🎯';
+  font-size: 12px;
+}
+
+.hh-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 20px;
+  background: #111827;
+  color: white;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 10001;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  animation: hh-slide-in 0.3s ease;
+  max-width: 320px;
+}
+
+.hh-toast.error {
+  background: #EF4444;
+}
+
+.hh-toast.success {
+  background: #10B981;
+}
+
+@keyframes hh-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hh-toast.removing {
+  animation: hh-slide-out 0.3s ease forwards;
+}
+
+@keyframes hh-slide-out {
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* Selection highlight */
+::selection {
+  background: rgba(108, 99, 255, 0.2);
+}

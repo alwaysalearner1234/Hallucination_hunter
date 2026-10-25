@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hallucination Hunter</title>
+  <link rel="stylesheet" href="../assets/styles/popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <div class="logo-text">
+          <span class="logo-title">Hallucination</span>
+          <span class="logo-accent">Hunter</span>
+        </div>
+      </div>
+      <div class="status-indicator" id="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">Checking...</span>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Quick Verify -->
+      <section class="section">
+        <h2>Quick Verify</h2>
+        <p class="section-desc">Paste text or use the context menu on AI responses</p>
+
+        <div class="input-group">
+          <textarea
+            id="verify-text"
+            placeholder="Paste AI response to verify..."
+            rows="4"
+          ></textarea>
+          <div class="input-hint">
+            <span id="char-count">0</span> / 50,000 characters
+          </div>
+        </div>
+
+        <div class="mode-selector">
+          <label>Mode:</label>
+          <select id="verify-mode">
+            <option value="quick">Quick - Fast</option>
+            <option value="standard" selected>Standard - Balanced</option>
+            <option value="deep">Deep - Thorough</option>
+            <option value="strict">Strict - Rigorous</option>
+          </select>
+        </div>
+
+        <button id="verify-btn" class="primary-btn" disabled>
+          <span class="btn-text">🔍 Verify</span>
+          <span class="btn-loader hidden"></span>
+        </button>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="section">
+        <h2>Quick Actions</h2>
+        <div class="action-grid">
+          <button class="action-btn" id="verify-selection-btn">
+            <span class="action-icon">✂️</span>
+            <div class="action-info">
+              <span class="action-title">Verify Selection</span>
+              <span class="action-desc">Right-click selected text</span>
+            </div>
+          </button>
+          <button class="action-btn" id="verify-page-btn">
+            <span class="action-icon">📄</span>
+            <div class="action-info">
+              <span class="action-title">Verify Page</span>
+              <span class="action-desc">Extract AI content from page</span>
+            </div>
+          </button>
+          <button class="action-btn" id="open-sidepanel-btn">
+            <span class="action-icon">📊</span>
+            <div class="action-info">
+              <span class="action-title">Open Panel</span>
+              <span class="action-desc">View history & results</span>
+            </div>
+          </button>
+          <button class="action-btn" id="open-dashboard-btn">
+            <span class="action-icon">🌐</span>
+            <div class="action-info">
+              <span class="action-title">Web Dashboard</span>
+              <span class="action-desc">Full verification history</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- Recent Verification -->
+      <section class="section" id="recent-section" style="display: none;">
+        <div class="section-header">
+          <h2>Last Verification</h2>
+          <button class="text-btn" id="view-full-btn">View Full</button>
+        </div>
+        <div class="recent-card" id="recent-card">
+          <!-- Filled dynamically -->
+        </div>
+      </section>
+
+      <!-- Error Message -->
+      <div id="error-message" class="error-message hidden"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <a href="#" id="settings-link">Settings</a>
+      <span>•</span>
+      <a href="#" id="help-link">Help</a>
+      <span>•</span>
+      <span class="version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

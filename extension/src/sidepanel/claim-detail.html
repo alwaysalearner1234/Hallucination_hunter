@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claim Detail - Hallucination Hunter</title>
+  <link rel="stylesheet" href="../assets/styles/claim-detail.css">
+</head>
+<body>
+  <div class="detail-container">
+    <!-- Header -->
+    <header class="header">
+      <button class="back-btn" id="back-btn" aria-label="Back">←</button>
+      <h1>Claim Detail</h1>
+      <div style="width: 40px;"></div>
+    </header>
+
+    <main class="main">
+      <!-- Claim Text -->
+      <section class="section">
+        <div class="section-label">ORIGINAL CLAIM</div>
+        <p class="claim-text" id="claim-text"></p>
+      </section>
+
+      <!-- Verdict & Confidence -->
+      <section class="section" id="verdict-section">
+        <div class="verdict-row">
+          <div class="verdict-badge" id="verdict-badge">
+            <span class="verdict-icon"></span>
+            <span class="verdict-label"></span>
+          </div>
+          <div class="confidence-box" id="confidence-box">
+            <span class="confidence-value"></span>
+            <span class="confidence-label">Confidence</span>
+          </div>
+          <div class="severity-box" id="severity-box" style="display: none;">
+            <span class="severity-value"></span>
+            <span class="severity-label">Severity</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Meta -->
+      <section class="section" id="meta-section">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">Type</span>
+            <span class="meta-value" id="claim-type"></span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Importance</span>
+            <span class="meta-value" id="claim-importance"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reasoning -->
+      <section class="section" id="reasoning-section" style="display: none;">
+        <h3 class="section-title">📋 Reasoning</h3>
+        <p class="body-text" id="reasoning-text"></p>
+      </section>
+
+      <!-- Correction -->
+      <section class="section" id="correction-section" style="display: none;">
+        <h3 class="section-title">✏️ Correction</h3>
+        <div class="correction-card">
+          <div class="correction-row">
+            <div class="correction-column">
+              <span class="correction-label">Original</span>
+              <p class="correction-original" id="correction-original"></p>
+            </div>
+            <div class="correction-column">
+              <span class="correction-label">Corrected</span>
+              <p class="correction-text" id="correction-text"></p>
+            </div>
+          </div>
+          <div class="correction-evidence" id="correction-evidence-box" style="display: none;">
+            <span class="correction-label">Evidence Basis</span>
+            <p class="body-text" id="correction-evidence-text"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Evidence -->
+      <section class="section" id="evidence-section">
+        <h3 class="section-title">🔍 Evidence (<span id="evidence-count">0</span> sources)</h3>
+        <div class="evidence-list" id="evidence-list">
+          <p class="no-evidence" style="display: none;">No evidence was retrieved for this claim.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="claim-detail.js"></script>
+</body>
+</html>

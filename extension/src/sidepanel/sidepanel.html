@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hallucination Hunter</title>
+  <link rel="stylesheet" href="../assets/styles/sidepanel.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">🎯</span>
+        <div class="logo-text">
+          <span class="logo-title">Hallucination</span>
+          <span class="logo-accent">Hunter</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">⚙️</button>
+        <button id="history-btn" class="icon-btn" title="History" aria-label="History">📋</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main" id="main-content">
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">🔍</div>
+        <h2>Ready to Verify</h2>
+        <p>Select text on any AI chat page and right-click "Verify with Hallucination Hunter"</p>
+        <div class="empty-hints">
+          <span class="hint">✂️ Right-click selected text</span>
+          <span class="hint">📄 Or click "Verify Page" from extension menu</span>
+          <span class="hint">⌨️ Shortcut: Ctrl+Shift+V</span>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="loading-state hidden">
+        <div class="loading-spinner"></div>
+        <h2>Verifying Claims...</h2>
+        <p id="loading-message">Searching real sources for evidence</p>
+        <div class="progress-stages" id="progress-stages"></div>
+      </div>
+
+      <!-- Results State -->
+      <div id="results-state" class="results-state hidden">
+        <div class="results-header">
+          <div class="trust-score-container">
+            <div id="trust-score-gauge" class="trust-score-gauge"></div>
+            <div class="trust-score-label" id="trust-score-label">—</div>
+          </div>
+          <div class="results-meta">
+            <span id="verification-time" class="meta-item"></span>
+            <span id="claim-count" class="meta-item"></span>
+          </div>
+        </div>
+
+        <div class="breakdown-pills" id="breakdown-pills"></div>
+
+        <div class="filter-tabs" id="filter-tabs">
+          <button class="filter-tab active" data-filter="all">All</button>
+          <button class="filter-tab" data-filter="VERIFIED">✅ Verified</button>
+          <button class="filter-tab" data-filter="FALSE">❌ False</button>
+          <button class="filter-tab" data-filter="UNVERIFIABLE">❓ Unverifiable</button>
+        </div>
+
+        <div class="claims-list" id="claims-list"></div>
+
+        <div id="verified-answer-section" class="verified-answer hidden">
+          <h3>✨ Verified Answer</h3>
+          <div id="verified-answer-text"></div>
+        </div>
+      </div>
+
+      <!-- History View -->
+      <div id="history-view" class="history-view hidden">
+        <div class="view-header">
+          <h2>Verification History</h2>
+          <button id="clear-history-btn" class="text-btn">Clear All</button>
+        </div>
+        <div class="history-list" id="history-list"></div>
+        <div id="history-empty" class="empty-state hidden">
+          <div class="empty-icon">📋</div>
+          <h3>No History Yet</h3>
+          <p>Your verification results will appear here</p>
+        </div>
+      </div>
+
+      <!-- Settings View -->
+      <div id="settings-view" class="settings-view hidden">
+        <div class="view-header">
+          <h2>Settings</h2>
+        </div>
+        <form id="settings-form" class="settings-form">
+          <div class="setting-group">
+            <label for="api-url">API URL</label>
+            <input type="url" id="api-url" placeholder="https://api.truthlayer.example.com/api/v1" required>
+            <small>Your backend API endpoint</small>
+          </div>
+          <div class="setting-group">
+            <label for="api-key">API Key (optional)</label>
+            <input type="password" id="api-key" placeholder="tl_..." autocomplete="new-password">
+            <small>Per-install API key from the backend</small>
+          </div>
+          <div class="setting-group">
+            <label for="default-mode">Default Mode</label>
+            <select id="default-mode">
+              <option value="quick">Quick - Fast verification</option>
+              <option value="standard" selected>Standard - Balanced</option>
+              <option value="deep">Deep - Thorough</option>
+              <option value="strict">Strict - Rigorous</option>
+            </select>
+          </div>
+          <div class="setting-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="auto-open-panel" checked>
+              <span>Auto-open side panel on verification</span>
+            </label>
+          </div>
+          <div class="setting-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-notifications" checked>
+              <span>Show completion notifications</span>
+            </label>
+          </div>
+          <div class="setting-group checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="verify-page-enabled" checked>
+              <span>Enable "Verify Page" context menu</span>
+            </label>
+          </div>
+          <button type="submit" class="primary-btn">Save Settings</button>
+        </form>
+        <div class="settings-actions">
+          <button id="test-connection-btn" class="secondary-btn">Test Connection</button>
+          <button id="open-dashboard-btn" class="secondary-btn">Open Web Dashboard</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <a href="https://truthlayer.example.com/privacy" target="_blank">Privacy</a>
+      <span>•</span>
+      <a href="https://truthlayer.example.com/docs" target="_blank">Docs</a>
+      <span>•</span>
+      <span class="version">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
