@@ -17,6 +17,7 @@ import structlog
 from app.core.config import settings
 from app.api.v1.verify import router as verify_router
 from app.api.v1.health import router as health_router
+from app.api.v1.portal import router as portal_router
 
 logger = structlog.get_logger()
 
@@ -30,8 +31,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Hallucination Hunter API",
-    description="Claim-level AI trust verification. Verify AI responses with real evidence.",
+    title="Instrument Verification Portal API",
+    description="Online Verification System for Weighing & Measuring Instruments & Claim-level Trust Verification.",
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
@@ -50,6 +51,7 @@ app.add_middleware(
 # ── Routes ────────────────────────────────────────────────────
 app.include_router(verify_router, prefix="/api/v1", tags=["Verification"])
 app.include_router(health_router, prefix="/api/v1", tags=["Health & Upload"])
+app.include_router(portal_router, prefix="/api/v1/portal", tags=["Instrument Verification Portal"])
 
 
 # ── Global error handlers ────────────────────────────────────

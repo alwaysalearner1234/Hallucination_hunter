@@ -58,11 +58,32 @@ export default function HomeScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.greeting}>Hallucination</Text>
-              <Text style={styles.appName}>Hunter 🎯</Text>
+              <Text style={styles.greeting}>Welcome to</Text>
+              <Text style={styles.appName}>VerifyIt ⚖️</Text>
             </View>
-            <View style={styles.statusDot} />
+            <TouchableOpacity
+              style={{ backgroundColor: `${Colors.primary}25`, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.primary}50` }}
+              onPress={() => router.push('/home' as never)}
+            >
+              <Text style={{ color: Colors.primary, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Full Portal →</Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Portal Quick Access */}
+          <TouchableOpacity
+            style={[styles.primaryAction, { borderColor: '#6C63FF80', backgroundColor: '#6C63FF18', marginBottom: Spacing.md }]}
+            onPress={() => router.push('/home' as never)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.primaryActionIcon, { backgroundColor: '#6C63FF30' }]}>
+              <Text style={{ fontSize: 30 }}>⚖️</Text>
+            </View>
+            <View style={styles.primaryActionText}>
+              <Text style={styles.primaryActionTitle}>Instrument Verification Portal</Text>
+              <Text style={styles.primaryActionDesc}>Trader, Admin, Certificates & Legal Metrology AI</Text>
+            </View>
+            <Text style={styles.arrow}>→</Text>
+          </TouchableOpacity>
 
           {/* Stats Row */}
           {history.length > 0 && (
@@ -76,7 +97,7 @@ export default function HomeScreen() {
           {/* Primary Action */}
           <TouchableOpacity
             style={styles.primaryAction}
-            onPress={() => router.push('/verify/index')}
+            onPress={() => router.push('/verify' as never)}
             activeOpacity={0.85}
           >
             <View style={styles.primaryActionIcon}>
@@ -109,7 +130,7 @@ export default function HomeScreen() {
           {/* Demo button */}
           <TouchableOpacity
             style={styles.demoBtn}
-            onPress={() => router.push({ pathname: '/verify/index', params: { demo: '1' } })}
+            onPress={() => router.push({ pathname: '/verify' as never, params: { demo: '1' } })}
           >
             <Text style={styles.demoBtnText}>✨ Try Demo Verification</Text>
           </TouchableOpacity>

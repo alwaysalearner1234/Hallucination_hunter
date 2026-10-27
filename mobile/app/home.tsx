@@ -7,6 +7,7 @@ import {
   Pressable,
   SafeAreaView,
 } from "react-native";
+import { router } from "expo-router";
 
 export default function HomeScreen() {
   return (
@@ -15,21 +16,83 @@ export default function HomeScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* ================= HEADER ================= */}
         <View style={styles.header}>
           <View>
             <Text style={styles.smallText}>WELCOME TO</Text>
+
             <Text style={styles.logo}>
-              Hallucination <Text style={styles.logoAccent}>Hunter</Text>
+              Verify
+              <Text style={styles.logoAccent}>It ⚖️</Text>
             </Text>
           </View>
 
-          <View style={styles.profile}>
+          <Pressable
+            style={styles.profile}
+            onPress={() => router.push("/privacy")}
+          >
             <Text style={styles.profileText}>A</Text>
+          </Pressable>
+        </View>
+
+        {/* ================= INSTRUMENT VERIFICATION PORTAL (M1 + M3) ================= */}
+        <View style={styles.portalHero}>
+          <Text style={styles.portalHeroTitle}>
+            Instrument Verification Portal
+          </Text>
+
+          <Text style={styles.portalHeroDesc}>
+            Online Statutory Verification System for Weighing & Measuring Instruments: Trader Management, Inspector Scheduling, SHA-256 PDF Certificates, and QR Tamper Verification.
+          </Text>
+
+          <View style={styles.portalButtonsGrid}>
+            <Pressable
+              style={({ pressed }) => [styles.portalBtn, styles.portalTraderBtn, pressed && styles.pressed]}
+              onPress={() => router.push("/portal/trader" as never)}
+            >
+              <Text style={styles.portalBtnIcon}>🏪</Text>
+              <View>
+                <Text style={styles.portalBtnTitle}>Trader Portal</Text>
+                <Text style={styles.portalBtnSub}>Overview, Registry & Applications</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.portalBtn, styles.portalAdminBtn, pressed && styles.pressed]}
+              onPress={() => router.push("/portal/admin" as never)}
+            >
+              <Text style={styles.portalBtnIcon}>🏛️</Text>
+              <View>
+                <Text style={styles.portalBtnTitle}>Admin / Inspector</Text>
+                <Text style={styles.portalBtnSub}>Assignments, Scheduling & Tests</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.portalBtn, styles.portalVerifyBtn, pressed && styles.pressed]}
+              onPress={() => router.push("/portal/verify-certificate" as never)}
+            >
+              <Text style={styles.portalBtnIcon}>🛡️</Text>
+              <View>
+                <Text style={styles.portalBtnTitle}>Public QR Verification</Text>
+                <Text style={styles.portalBtnSub}>SHA-256 Hash & Tamper Audit</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.portalBtn, styles.portalAiBtn, pressed && styles.pressed]}
+              onPress={() => router.push("/portal/ai-assistant" as never)}
+            >
+              <Text style={styles.portalBtnIcon}>🤖</Text>
+              <View>
+                <Text style={styles.portalBtnTitle}>Regulatory AI Assistant</Text>
+                <Text style={styles.portalBtnSub}>RAG with Document Citations</Text>
+              </View>
+            </Pressable>
           </View>
         </View>
 
-        {/* Hero */}
+        {/* ================= HERO ================= */}
         <View style={styles.hero}>
           <View style={styles.heroBadge}>
             <Text style={styles.heroBadgeText}>AI VERIFICATION</Text>
@@ -46,13 +109,21 @@ export default function HomeScreen() {
             using AI-powered verification.
           </Text>
 
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Start Verification</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push("/verify")}
+          >
+            <Text style={styles.primaryButtonText}>
+              Start Verification
+            </Text>
             <Text style={styles.arrow}>→</Text>
           </Pressable>
         </View>
 
-        {/* Stats */}
+        {/* ================= STATS ================= */}
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statNumber}>98%</Text>
@@ -70,11 +141,20 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Main Features */}
-        <Text style={styles.sectionTitle}>What do you want to verify?</Text>
+        {/* ================= MAIN FEATURES ================= */}
+        <Text style={styles.sectionTitle}>
+          What do you want to verify?
+        </Text>
 
         <View style={styles.grid}>
-          <Pressable style={styles.featureCard}>
+          {/* VERIFY CLAIM */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.featureCard,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push("/verify")}
+          >
             <View style={[styles.iconBox, styles.blueIcon]}>
               <Text style={styles.icon}>✓</Text>
             </View>
@@ -88,7 +168,14 @@ export default function HomeScreen() {
             <Text style={styles.cardArrow}>→</Text>
           </Pressable>
 
-          <Pressable style={styles.featureCard}>
+          {/* ANALYZE */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.featureCard,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push("/verify")}
+          >
             <View style={[styles.iconBox, styles.purpleIcon]}>
               <Text style={styles.icon}>⌕</Text>
             </View>
@@ -102,7 +189,14 @@ export default function HomeScreen() {
             <Text style={styles.cardArrow}>→</Text>
           </Pressable>
 
-          <Pressable style={styles.featureCard}>
+          {/* SCREENSHOT */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.featureCard,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push("/screenshot")}
+          >
             <View style={[styles.iconBox, styles.greenIcon]}>
               <Text style={styles.icon}>▣</Text>
             </View>
@@ -116,7 +210,14 @@ export default function HomeScreen() {
             <Text style={styles.cardArrow}>→</Text>
           </Pressable>
 
-          <Pressable style={styles.featureCard}>
+          {/* HISTORY */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.featureCard,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push("/history")}
+          >
             <View style={[styles.iconBox, styles.orangeIcon]}>
               <Text style={styles.icon}>↺</Text>
             </View>
@@ -131,22 +232,26 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Recent Activity */}
+        {/* ================= RECENT ACTIVITY ================= */}
         <View style={styles.activityHeader}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
 
-          <Pressable>
+          <Pressable onPress={() => router.push("/history")}>
             <Text style={styles.viewAll}>View all</Text>
           </Pressable>
         </View>
 
+        {/* ACTIVITY 1 */}
         <View style={styles.activityCard}>
           <View style={styles.activityIcon}>
             <Text style={styles.activityIconText}>✓</Text>
           </View>
 
           <View style={styles.activityContent}>
-            <Text style={styles.activityTitle}>Verification completed</Text>
+            <Text style={styles.activityTitle}>
+              Verification completed
+            </Text>
+
             <Text style={styles.activityDescription}>
               Your claim analysis is ready to view.
             </Text>
@@ -155,13 +260,17 @@ export default function HomeScreen() {
           <Text style={styles.success}>Verified</Text>
         </View>
 
+        {/* ACTIVITY 2 */}
         <View style={styles.activityCard}>
           <View style={styles.activityIcon}>
             <Text style={styles.activityIconText}>⌕</Text>
           </View>
 
           <View style={styles.activityContent}>
-            <Text style={styles.activityTitle}>Analysis completed</Text>
+            <Text style={styles.activityTitle}>
+              AI analysis completed
+            </Text>
+
             <Text style={styles.activityDescription}>
               Evidence analysis has been completed.
             </Text>
@@ -170,11 +279,12 @@ export default function HomeScreen() {
           <Text style={styles.success}>Done</Text>
         </View>
 
-        {/* Footer */}
+        {/* ================= FOOTER ================= */}
         <View style={styles.footer}>
-          <Text style={styles.footerTitle}>Hallucination Hunter</Text>
+          <Text style={styles.footerTitle}>VerifyIt</Text>
+
           <Text style={styles.footerText}>
-            Verify. Analyze. Discover the truth.
+            Verify Instruments. Verify AI. Discover the truth.
           </Text>
         </View>
       </ScrollView>
@@ -183,6 +293,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  /* ================= GENERAL ================= */
+
   safeArea: {
     flex: 1,
     backgroundColor: "#080B14",
@@ -195,6 +307,13 @@ const styles = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
+
+  pressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.98 }],
+  },
+
+  /* ================= HEADER ================= */
 
   header: {
     flexDirection: "row",
@@ -214,7 +333,7 @@ const styles = StyleSheet.create({
   logo: {
     color: "#FFFFFF",
     fontSize: 25,
-    fontWeight: "800",
+    fontWeight: "900",
   },
 
   logoAccent: {
@@ -238,6 +357,104 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  /* ================= PORTAL HERO ================= */
+
+  portalHero: {
+    backgroundColor: "#0F1322",
+    borderRadius: 24,
+    padding: 26,
+    borderWidth: 1.5,
+    borderColor: "#3D387A",
+    marginBottom: 24,
+  },
+
+  portalBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(108, 99, 255, 0.2)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "rgba(108, 99, 255, 0.5)",
+  },
+
+  portalBadgeText: {
+    color: "#00D4FF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+
+  portalHeroTitle: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+
+  portalHeroDesc: {
+    color: "#9AA3B7",
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+
+  portalButtonsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+
+  portalBtn: {
+    width: "48%",
+    minWidth: 220,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+
+  portalTraderBtn: {
+    backgroundColor: "rgba(108, 99, 255, 0.12)",
+    borderColor: "rgba(108, 99, 255, 0.35)",
+  },
+
+  portalAdminBtn: {
+    backgroundColor: "rgba(0, 212, 255, 0.12)",
+    borderColor: "rgba(0, 212, 255, 0.35)",
+  },
+
+  portalVerifyBtn: {
+    backgroundColor: "rgba(0, 229, 160, 0.12)",
+    borderColor: "rgba(0, 229, 160, 0.35)",
+  },
+
+  portalAiBtn: {
+    backgroundColor: "rgba(255, 165, 2, 0.12)",
+    borderColor: "rgba(255, 165, 2, 0.35)",
+  },
+
+  portalBtnIcon: {
+    fontSize: 26,
+  },
+
+  portalBtnTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  portalBtnSub: {
+    color: "#858EA3",
+    fontSize: 11,
+    marginTop: 2,
+  },
+
+  /* ================= HERO ================= */
+
   hero: {
     backgroundColor: "#111728",
     borderRadius: 24,
@@ -259,7 +476,7 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     color: "#8F88FF",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "900",
     letterSpacing: 1.2,
   },
 
@@ -305,6 +522,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
+  /* ================= STATS ================= */
+
   statsRow: {
     flexDirection: "row",
     gap: 14,
@@ -332,12 +551,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  /* ================= SECTION ================= */
+
   sectionTitle: {
     color: "#FFFFFF",
     fontSize: 21,
     fontWeight: "800",
     marginBottom: 16,
   },
+
+  /* ================= FEATURE GRID ================= */
 
   grid: {
     flexDirection: "row",
@@ -375,7 +598,7 @@ const styles = StyleSheet.create({
   },
 
   greenIcon: {
-    backgroundColor: "#183C35",
+    backgroundColor: "#182C35",
   },
 
   orangeIcon: {
@@ -410,6 +633,8 @@ const styles = StyleSheet.create({
     bottom: 18,
   },
 
+  /* ================= ACTIVITY ================= */
+
   activityHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -417,7 +642,7 @@ const styles = StyleSheet.create({
   },
 
   viewAll: {
-    color: "#817AFF",
+    color: "#8F87FF",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -446,7 +671,7 @@ const styles = StyleSheet.create({
   activityIconText: {
     color: "#4ADE80",
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "900",
   },
 
   activityContent: {
@@ -470,6 +695,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+
+  /* ================= FOOTER ================= */
 
   footer: {
     alignItems: "center",

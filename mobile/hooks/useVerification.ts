@@ -90,7 +90,7 @@ export function useVerification(): UseVerificationReturn {
 
 function handleProgressEvent(
   event: ProgressEvent,
-  setProgress: (p: AnalysisProgress) => void,
+  setProgress: React.Dispatch<React.SetStateAction<AnalysisProgress>>,
   setResult: (r: VerificationResult) => void,
 ) {
   const { event: eventName, data } = event;

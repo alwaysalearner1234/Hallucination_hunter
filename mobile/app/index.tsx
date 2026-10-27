@@ -60,15 +60,10 @@ export default function SplashScreen() {
       }),
     ]).start();
 
-    // Navigate after animation
-    const timer = setTimeout(async () => {
-      const done = await storage.isOnboardingComplete();
-      if (done) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/onboarding');
-      }
-    }, 2800);
+    // Navigate after animation to VerifyIt home
+    const timer = setTimeout(() => {
+      router.replace('/home' as never);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, []);
@@ -87,18 +82,17 @@ export default function SplashScreen() {
         styles.logoContainer,
         { transform: [{ scale: logoScale }], opacity: logoOpacity }
       ]}>
-        <Text style={styles.logoIcon}>🎯</Text>
+        <Text style={styles.logoIcon}>⚖️</Text>
       </Animated.View>
 
       {/* Title */}
       <Animated.View style={[styles.titleContainer, { opacity: titleOpacity }]}>
-        <Text style={styles.title}>Hallucination</Text>
-        <Text style={styles.titleAccent}>Hunter</Text>
+        <Text style={styles.title}>Verify<Text style={styles.titleAccent}>It</Text></Text>
       </Animated.View>
 
       {/* Subtitle */}
       <Animated.Text style={[styles.subtitle, { opacity: subtitleOpacity }]}>
-        Verify AI. Trust Evidence.
+        Online Instrument Verification & AI Trust
       </Animated.Text>
 
       {/* Version */}
